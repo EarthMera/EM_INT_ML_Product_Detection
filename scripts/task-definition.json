@@ -1,0 +1,40 @@
+{
+    "family": "nerf-pipeline-task",
+    "containerDefinitions": [
+      {
+        "name": "nerf-container",
+        "image": "<your_ecr_image_url>",  // need to replace
+        "memory": 4096,
+        "cpu": 1024,
+        "essential": true,
+        "command": ["python", "synthetic_image_generation/pipeline_entry.py"],
+        "environment": [
+          {
+            "name": "AWS_REGION",
+            "value": "us-east-1"
+          },
+          {
+            "name": "S3_BUCKET_NAME",
+            "value": "product-videos-bucket"
+          }
+        ],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/nerf-pipeline-task",
+            "awslogs-region": "us-east-1",
+            "awslogs-stream-prefix": "nerf"
+          }
+        }
+      }
+    ],
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "1024",
+    "memory": "4096",
+    "executionRoleArn": "<your_execution_role_arn>",  // need to replace
+    "taskRoleArn": "<your_task_role_arn>"  // need to replace
+  }
+  
+
+// aws ecs register-task-definition --cli-input-json file://scripts/task-definition.json
