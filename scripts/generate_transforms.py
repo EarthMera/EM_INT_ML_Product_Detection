@@ -105,5 +105,9 @@ def generate_transforms(product_name):
 
 if __name__ == "__main__":
     import sys
+    if len(sys.argv) != 2:
+        print("Usage: python generate_transforms.py <product_name>")
+        exit(1)
+        
     product_name = sys.argv[1]
     generate_transforms(product_name)

@@ -1,7 +1,25 @@
+python-multipart
+
+# Web framework and server
+fastapi
+uvicorn
+
+# AWS SDK
+boto3
+
+# Database connection
+psycopg2-binary
+
+# Environment variable management
+python-dotenv
+
+# Instant-NGP dependencies
 numpy
-opencv-python
-commentjson
+pillow
 imageio
+imageio[ffmpeg]
+opencv-python
+matplotlib
+commentjson
 scipy
 tqdm
-pyngp

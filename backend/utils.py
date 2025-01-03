@@ -1,12 +1,16 @@
 import logging
+import os
+from dotenv import load_dotenv
 
-def setup_logger():
-    logger = logging.getLogger("backend")
-    logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
+# Load environment variables
+load_dotenv()
 
-logger = setup_logger()
+# Logging setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def validate_environment_variables(*env_vars):
+    """Validate if all required environment variables are set."""
+    missing_vars = [var for var in env_vars if not os.getenv(var)]
+    if missing_vars:
+        raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")

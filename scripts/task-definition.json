@@ -1,40 +1,41 @@
 {
-    "family": "nerf-pipeline-task",
+    "family": "nerf-backend",
+    "networkMode": "awsvpc",
+    "executionRoleArn": "arn:aws:iam::your-account-id:role/ECSExecutionRole",
+    "taskRoleArn": "arn:aws:iam::your-account-id:role/ECSTaskRole",
     "containerDefinitions": [
       {
-        "name": "nerf-container",
-        "image": "<your_ecr_image_url>",  // need to replace
+        "name": "nerf-backend",
+        "image": "827432256119.dkr.ecr.us-east-1.amazonaws.com/nerf-backend:latest",
         "memory": 4096,
         "cpu": 1024,
         "essential": true,
-        "command": ["python", "synthetic_image_generation/pipeline_entry.py"],
-        "environment": [
+        "portMappings": [
           {
-            "name": "AWS_REGION",
-            "value": "us-east-1"
-          },
-          {
-            "name": "S3_BUCKET_NAME",
-            "value": "product-videos-bucket"
+            "containerPort": 8000,
+            "hostPort": 8000
           }
+        ],
+        "environment": [
+          { "name": "S3_BUCKET_NAME", "value": "nerf-pipeline-bucket" },
+          { "name": "RDS_HOST", "value": "nerf-rds.cv886guc6d40.us-east-1.rds.amazonaws.com" },
+          { "name": "RDS_PORT", "value": "5432" },
+          { "name": "RDS_DB_NAME", "value": "nerf-rds" },
+          { "name": "RDS_USER", "value": "postgres" },
+          { "name": "RDS_PASSWORD", "value": "earthmera_rds" }
         ],
         "logConfiguration": {
           "logDriver": "awslogs",
           "options": {
-            "awslogs-group": "/ecs/nerf-pipeline-task",
+            "awslogs-group": "/ecs/nerf-backend",
             "awslogs-region": "us-east-1",
-            "awslogs-stream-prefix": "nerf"
+            "awslogs-stream-prefix": "ecs"
           }
         }
       }
     ],
-    "networkMode": "awsvpc",
-    "requiresCompatibilities": ["FARGATE"],
+    "requiresCompatibilities": ["EC2"],
     "cpu": "1024",
-    "memory": "4096",
-    "executionRoleArn": "<your_execution_role_arn>",  // need to replace
-    "taskRoleArn": "<your_task_role_arn>"  // need to replace
+    "memory": "4096"
   }
   
-
-// aws ecs register-task-definition --cli-input-json file://scripts/task-definition.json

@@ -1,45 +1,23 @@
 #!/bin/bash
 
-# Define variables
-BUCKET_NAME="product-videos-bucket"
-ECS_CLUSTER_NAME="nerf-cluster"
-ECS_TASK_ROLE_NAME="nerf-task-role"
-ECS_EXECUTION_ROLE_NAME="nerf-execution-role"
-LOG_GROUP_NAME="/ecs/nerf-pipeline-task"
-REGION="us-east-1" 
+# AWS CLI configurations
+AWS_REGION="us-east-1"
+S3_BUCKET_NAME="nerf-pipeline-bucket"
+ECR_REPOSITORY="827432256119.dkr.ecr.$AWS_REGION.amazonaws.com/nerf-backend"
 
-echo "Setting up AWS resources for the project..."
+# Create S3 bucket
+aws s3api create-bucket --bucket $S3_BUCKET_NAME --region $AWS_REGION
 
-# Step 1: Create S3 bucket
-echo "Creating S3 bucket..."
-aws s3 mb s3://$BUCKET_NAME --region $REGION
-aws s3api put-bucket-versioning --bucket $BUCKET_NAME --versioning-configuration Status=Enabled
-aws s3api put-bucket-encryption --bucket $BUCKET_NAME \
-  --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+# Create ECR repository
+aws ecr create-repository --repository-name nerf-backend --region $AWS_REGION
 
-# Step 2: Create IAM roles
-echo "Creating IAM roles for ECS..."
+# Set up ECS roles and policies
+aws iam create-role --role-name ECSExecutionRole --assume-role-policy-document file://ecs-execution-role-trust-policy.json
+aws iam attach-role-policy --role-name ECSExecutionRole --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
-# Create ECS Task Role
-aws iam create-role --role-name $ECS_TASK_ROLE_NAME \
-  --assume-role-policy-document file://ecs-task-role-trust-policy.json
+aws iam create-role --role-name ECSTaskRole --assume-role-policy-document file://ecs-task-role-trust-policy.json
+aws iam attach-role-policy --role-name ECSTaskRole --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+aws iam attach-role-policy --role-name ECSTaskRole --policy-arn arn:aws:iam::aws:policy/AmazonRDSFullAccess
 
-aws iam attach-role-policy --role-name $ECS_TASK_ROLE_NAME \
-  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
-
-# Create ECS Execution Role
-aws iam create-role --role-name $ECS_EXECUTION_ROLE_NAME \
-  --assume-role-policy-document file://ecs-execution-role-trust-policy.json
-
-aws iam attach-role-policy --role-name $ECS_EXECUTION_ROLE_NAME \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-
-# Step 3: Create CloudWatch Logs group
-echo "Creating CloudWatch log group..."
-aws logs create-log-group --log-group-name $LOG_GROUP_NAME || true
-
-# Step 4: Create ECS cluster
-echo "Creating ECS cluster..."
-aws ecs create-cluster --cluster-name $ECS_CLUSTER_NAME
-
-echo "AWS setup complete!"
+# Output setup details
+echo "AWS setup complete."
