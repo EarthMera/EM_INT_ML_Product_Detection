@@ -6,6 +6,7 @@ from synthetic_image_generation.pipeline_entry import (
     run_train_nerf,
     run_generate_synthetic_transforms,
     run_render_synthetic_images,
+    upload_synthetic_images_to_s3
 )
 from db import update_product
 from dotenv import load_dotenv
@@ -44,6 +45,10 @@ def run_nerf_pipeline(product_id, video_s3_path):
         # Step 4: Render synthetic images
         logger.info("Rendering synthetic images...")
         run_render_synthetic_images(product_id)
+
+        # Step 5: Upload synthetic images to S3
+        logger.info("Uploading synthetic images to S3...")
+        upload_synthetic_images_to_s3(product_id)
         
         # Update the product status to completed
         update_product(product_id, status="completed")
