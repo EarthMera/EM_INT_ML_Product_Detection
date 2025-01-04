@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 from contextlib import asynccontextmanager
 from db import initialize_db, add_product, get_products, get_product_by_id, update_product, delete_product, initialize_connection_pool
 from services import run_nerf_pipeline, get_synthetic_images
@@ -14,11 +14,11 @@ class ProductInput(BaseModel):
 class PipelineInput(BaseModel):
     """Input model for triggering the pipeline."""
     video_path: str
-
 class ProductUpdateInput(BaseModel):
     """Input model for updating a product."""
-    name: str = Field(None, description="New name for the product")
-    description: str = Field(None, description="New description for the product")
+    name: Optional[str] = Field(None, description="New name for the product")
+    description: Optional[str] = Field(None, description="New description for the product")
+    videos: Optional[List[str]] = Field(None, description="List of updated video paths")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,7 +54,7 @@ def retrieve_product(product_id: int) -> dict:
     return product
 
 @app.put("/products/{product_id}")
-def update_product_endpoint(product_id: int, product_update: ProductUpdateInput, videos: List[str] = None):
+def update_product_endpoint(product_id: int, product_update: ProductUpdateInput):
     """Update a product's name, description, and/or videos."""
     product = get_product_by_id(product_id)
     if not product:
@@ -65,7 +65,7 @@ def update_product_endpoint(product_id: int, product_update: ProductUpdateInput,
             product_id=product_id,
             name=product_update.name,
             description=product_update.description,
-            videos=videos,
+            videos=product_update.videos,
         )
         updated_product = get_product_by_id(product_id)
         return {
