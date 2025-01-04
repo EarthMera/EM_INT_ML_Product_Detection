@@ -124,11 +124,15 @@ def get_product_by_id(product_id: int) -> dict:
         if conn:
             release_connection(conn)
 
-def update_product(product_id: int, videos: list = None, status: str = None):
+def update_product(product_id: int, name: str = None, description: str = None, videos: list = None, status: str = None):
     conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
+        if name:
+            cursor.execute("UPDATE products SET name = %s WHERE id = %s", (name, product_id))
+        if description:
+            cursor.execute("UPDATE products SET description = %s WHERE id = %s", (description, product_id))
         if videos:
             cursor.execute("UPDATE products SET videos = %s WHERE id = %s", (",".join(videos), product_id))
         if status:

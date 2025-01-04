@@ -2,6 +2,7 @@ import boto3
 import os
 import logging
 from dotenv import load_dotenv
+from db import update_product
 
 load_dotenv()
 
@@ -53,12 +54,22 @@ def trigger_nerf_pipeline_task(product_id, video_s3_path):
     )
     return response["tasks"][0]["taskArn"]
 
-def check_task_status(task_arn):
-    """Check the status of an ECS task."""
+def check_task_status(task_arn, product_id):
+    """Check the status of an ECS task and update the product status."""
     cluster_name = os.getenv("ECS_CLUSTER_NAME")
     logger.info(f"Checking status for task: {task_arn}")
     response = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn])
-    return response["tasks"][0]["lastStatus"]
+    task_status = response["tasks"][0]["lastStatus"]
+    
+    # Update product status based on task state
+    if task_status in ["STOPPED"]:
+        logger.info(f"Task {task_arn} completed.")
+        update_product(product_id, status="completed")
+    elif task_status in ["RUNNING", "PROVISIONING", "PENDING"]:
+        logger.info(f"Task {task_arn} is in progress.")
+        update_product(product_id, status="in-progress")
+    
+    return task_status
 
 def get_synthetic_images(product_id):
     """Retrieve synthetic images from S3."""

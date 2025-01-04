@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
 from contextlib import asynccontextmanager
 from db import initialize_db, add_product, get_products, get_product_by_id, update_product, delete_product
@@ -14,6 +14,11 @@ class ProductInput(BaseModel):
 class PipelineInput(BaseModel):
     """Input model for triggering the pipeline."""
     video_path: str
+
+class ProductUpdateInput(BaseModel):
+    """Input model for updating a product."""
+    name: str = Field(None, description="New name for the product")
+    description: str = Field(None, description="New description for the product")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +52,24 @@ def retrieve_product(product_id: int) -> dict:
         raise HTTPException(status_code=404, detail="Product not found.")
     return product
 
+@app.put("/products/{product_id}")
+def update_product_endpoint(product_id: int, product_update: ProductUpdateInput):
+    """Update a product's name and/or description."""
+    product = get_product_by_id(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    try:
+        update_product(
+            product_id=product_id,
+            name=product_update.name,
+            description=product_update.description,
+        )
+        updated_product = get_product_by_id(product_id)
+        return {"detail": f"Product {product_id} updated successfully.", "product": updated_product}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating product: {str(e)}")
+
 @app.delete("/products/{product_id}")
 def delete_product_endpoint(product_id: int):
     """Delete a product."""
@@ -67,15 +90,22 @@ def run_pipeline(product_id: int, pipeline_input: PipelineInput):
     try:
         task_arn = trigger_nerf_pipeline_task(product_id, video_s3_path)
         update_product(product_id, status="in-progress")
-        return {"detail": f"Pipeline started for product {product_id}. Task ARN: {task_arn}"}
+        return {
+            "detail": f"Pipeline started for product {product_id}.",
+            "task_arn": task_arn,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/products/{product_id}/status")
 def get_pipeline_status(product_id: int, task_arn: str) -> JSONResponse:
-    """Check the ECS task status."""
+    """Check the ECS task status and update product status."""
+    product = get_product_by_id(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
     try:
-        status = check_task_status(task_arn)
+        status = check_task_status(task_arn, product_id)
         return {"task_arn": task_arn, "status": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check task status: {str(e)}")
