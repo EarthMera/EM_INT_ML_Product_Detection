@@ -3,8 +3,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List
 from contextlib import asynccontextmanager
-from db import initialize_db, add_product, get_products, get_product_by_id, update_product, delete_product
-from services import trigger_nerf_pipeline_task, check_task_status, get_synthetic_images
+from db import initialize_db, add_product, get_products, get_product_by_id, update_product, delete_product, initialize_connection_pool
+from services import run_nerf_pipeline, get_synthetic_images
 
 class ProductInput(BaseModel):
     """Input model for creating a product."""
@@ -24,6 +24,7 @@ class ProductUpdateInput(BaseModel):
 async def lifespan(app: FastAPI):
     """Application lifespan management: Initialize database on startup."""
     print("Initializing the database...")
+    initialize_connection_pool()
     initialize_db()
     yield  # Application runs here
     print("Shutting down...")
@@ -53,8 +54,8 @@ def retrieve_product(product_id: int) -> dict:
     return product
 
 @app.put("/products/{product_id}")
-def update_product_endpoint(product_id: int, product_update: ProductUpdateInput):
-    """Update a product's name and/or description."""
+def update_product_endpoint(product_id: int, product_update: ProductUpdateInput, videos: List[str] = None):
+    """Update a product's name, description, and/or videos."""
     product = get_product_by_id(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
@@ -64,9 +65,13 @@ def update_product_endpoint(product_id: int, product_update: ProductUpdateInput)
             product_id=product_id,
             name=product_update.name,
             description=product_update.description,
+            videos=videos,
         )
         updated_product = get_product_by_id(product_id)
-        return {"detail": f"Product {product_id} updated successfully.", "product": updated_product}
+        return {
+            "detail": f"Product {product_id} updated successfully.",
+            "product": updated_product,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating product: {str(e)}")
 
@@ -81,34 +86,20 @@ def delete_product_endpoint(product_id: int):
 
 @app.post("/products/{product_id}/run-pipeline")
 def run_pipeline(product_id: int, pipeline_input: PipelineInput):
-    """Trigger the NeRF pipeline via ECS."""
+    """Run the NeRF pipeline locally within the current container."""
     product = get_product_by_id(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
 
     video_s3_path = pipeline_input.video_path
     try:
-        task_arn = trigger_nerf_pipeline_task(product_id, video_s3_path)
-        update_product(product_id, status="in-progress")
+        run_nerf_pipeline(product_id, video_s3_path)
         return {
-            "detail": f"Pipeline started for product {product_id}.",
-            "task_arn": task_arn,
+            "detail": f"Pipeline executed locally for product {product_id}.",
+            "status": "completed",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/products/{product_id}/status")
-def get_pipeline_status(product_id: int, task_arn: str) -> JSONResponse:
-    """Check the ECS task status and update product status."""
-    product = get_product_by_id(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found.")
-
-    try:
-        status = check_task_status(task_arn, product_id)
-        return {"task_arn": task_arn, "status": status}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to check task status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {str(e)}")
 
 @app.get("/products/{product_id}/synthetic-images")
 def get_images(product_id: int):

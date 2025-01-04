@@ -37,6 +37,7 @@ def initialize_connection_pool():
             logger.info("Connection pool initialized.")
         except Exception as e:
             logger.error(f"Failed to initialize connection pool: {e}")
+            logger.error(f"RDS_HOST={RDS_HOST}, RDS_PORT={RDS_PORT}, RDS_DB_NAME={RDS_DB_NAME}, RDS_USER={RDS_USER}")
             raise
 
 def get_connection():
@@ -49,6 +50,7 @@ def release_connection(conn):
 
 def initialize_db():
     conn = None
+    cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor()

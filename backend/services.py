@@ -1,8 +1,14 @@
 import boto3
 import os
 import logging
-from dotenv import load_dotenv
+from synthetic_image_generation.pipeline_entry import (
+    run_colmap2nerf,
+    run_train_nerf,
+    run_generate_synthetic_transforms,
+    run_render_synthetic_images,
+)
 from db import update_product
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -14,62 +20,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # AWS clients
-ecs_client = boto3.client("ecs", region_name=AWS_REGION)
 s3_client = boto3.client("s3", region_name=AWS_REGION)
 
-def trigger_nerf_pipeline_task(product_id, video_s3_path):
-    """Trigger an ECS task for the NeRF pipeline."""
-    cluster_name = os.getenv("ECS_CLUSTER_NAME")
-    task_definition = os.getenv("ECS_TASK_DEFINITION")
-    logger.info(f"Triggering ECS task for product ID: {product_id}")
-    
-    response = ecs_client.run_task(
-        cluster=cluster_name,
-        launchType="EC2",
-        taskDefinition=task_definition,
-        overrides={
-            "containerOverrides": [
-                {
-                    "name": "nerf-backend",
-                    "command": [
-                        "python", 
-                        "synthetic_image_generation/pipeline_entry.py",
-                        "--product_id", str(product_id),
-                        "--video_s3_path", video_s3_path
-                    ],
-                    "environment": [
-                        {"name": "PRODUCT_ID", "value": str(product_id)},
-                        {"name": "VIDEO_S3_PATH", "value": video_s3_path}
-                    ]
-                }
-            ]
-        },
-        networkConfiguration={
-            "awsvpcConfiguration": {
-                "subnets": os.getenv("ECS_SUBNETS").split(","),
-                "securityGroups": os.getenv("ECS_SECURITY_GROUPS").split(","),
-                "assignPublicIp": "ENABLED"
-            }
-        }
-    )
-    return response["tasks"][0]["taskArn"]
-
-def check_task_status(task_arn, product_id):
-    """Check the status of an ECS task and update the product status."""
-    cluster_name = os.getenv("ECS_CLUSTER_NAME")
-    logger.info(f"Checking status for task: {task_arn}")
-    response = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn])
-    task_status = response["tasks"][0]["lastStatus"]
-    
-    # Update product status based on task state
-    if task_status in ["STOPPED"]:
-        logger.info(f"Task {task_arn} completed.")
+def run_nerf_pipeline(product_id, video_s3_path):
+    """
+    Run the NeRF pipeline steps locally within the current task.
+    """
+    try:
+        logger.info(f"Starting local NeRF pipeline for product ID: {product_id}")
+        
+        # Step 1: Run COLMAP to generate poses
+        logger.info("Running COLMAP...")
+        run_colmap2nerf(product_id, video_s3_path)
+        
+        # Step 2: Train NeRF model
+        logger.info("Training NeRF model...")
+        run_train_nerf(product_id)
+        
+        # Step 3: Generate synthetic transforms
+        logger.info("Generating synthetic transforms...")
+        run_generate_synthetic_transforms(product_id)
+        
+        # Step 4: Render synthetic images
+        logger.info("Rendering synthetic images...")
+        run_render_synthetic_images(product_id)
+        
+        # Update the product status to completed
         update_product(product_id, status="completed")
-    elif task_status in ["RUNNING", "PROVISIONING", "PENDING"]:
-        logger.info(f"Task {task_arn} is in progress.")
-        update_product(product_id, status="in-progress")
+        logger.info(f"Pipeline completed successfully for product ID: {product_id}")
     
-    return task_status
+    except Exception as e:
+        logger.error(f"Failed to run NeRF pipeline: {e}")
+        update_product(product_id, status="failed")
+        raise
 
 def get_synthetic_images(product_id):
     """Retrieve synthetic images from S3."""

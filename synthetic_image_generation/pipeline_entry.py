@@ -19,12 +19,20 @@ def run_train_nerf(product_id):
     snapshot_path = f"{data_dir}/{product_id}.ingp"
     command = [
         "python", "/app/synthetic_image_generation/instant-ngp/scripts/run.py",
-        data_dir, "--save_snapshot", snapshot_path, "--n_steps", "20000"
+        data_dir, "--save_snapshot", snapshot_path, "--n_steps", "15000"
     ]
     subprocess.run(command, check=True)
 
 def run_generate_synthetic_transforms(product_id):
-    command = ["python", "scripts/generate_transforms.py", str(product_id)]
+    """Call the external generate_transforms.py script to create synthetic transforms."""
+    data_dir = f"/app/synthetic_image_generation/data/{product_id}"
+    input_path = f"{data_dir}/transforms.json"
+    output_path = f"{data_dir}/synthetic_transforms.json"
+    command = [
+        "python", "/app/synthetic_image_generation/generate_transforms.py",
+        "--input_path", input_path,
+        "--output_path", output_path
+    ]
     subprocess.run(command, check=True)
 
 def run_render_synthetic_images(product_id):

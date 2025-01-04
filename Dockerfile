@@ -57,7 +57,7 @@ RUN git clone --recursive https://github.com/NVlabs/instant-ngp.git /instant-ngp
     cmake --build build --config RelWithDebInfo -j
 
 # Set PYTHONPATH explicitly
-ENV PYTHONPATH="/instant-ngp/build"
+ENV PYTHONPATH="/app/backend:/instant-ngp/build"
 
 # Copy application files
 COPY . .
@@ -66,4 +66,4 @@ COPY . .
 EXPOSE 8000
 
 # Start FastAPI app
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

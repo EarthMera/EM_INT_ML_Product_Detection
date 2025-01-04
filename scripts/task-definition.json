@@ -20,7 +20,7 @@
           { "name": "S3_BUCKET_NAME", "value": "nerf-pipeline-bucket" },
           { "name": "RDS_HOST", "value": "nerf-rds.cv886guc6d40.us-east-1.rds.amazonaws.com" },
           { "name": "RDS_PORT", "value": "5432" },
-          { "name": "RDS_DB_NAME", "value": "nerf-rds" },
+          { "name": "RDS_DB_NAME", "value": "nerf_rds" },
           { "name": "RDS_USER", "value": "postgres" },
           { "name": "RDS_PASSWORD", "value": "earthmera_rds" }
         ],
