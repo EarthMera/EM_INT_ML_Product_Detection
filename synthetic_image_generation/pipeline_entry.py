@@ -9,28 +9,41 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def run_colmap2nerf(product_id, video_s3_path):
-    data_dir = f"/app/synthetic_image_generation/data/{product_id}"
+    data_dir = f"/app/data/{product_id}"
     os.makedirs(data_dir, exist_ok=True)
     video_path = download_s3_file(video_s3_path, f"{data_dir}/{product_id}.mp4")
+    out_path = f"{data_dir}/transforms.json"
     command = [
         "python", "/app/synthetic_image_generation/instant-ngp/scripts/colmap2nerf.py",
         "--video_in", video_path, "--video_fps", "8", "--run_colmap",
-        "--aabb_scale", "8", "--overwrite", "--out", data_dir
-    ]
+        "--aabb_scale", "8", "--overwrite", "--out", out_path
+    ]    
     subprocess.run(command, check=True)
+    
+    logging.info(f"transforms.json created at {data_dir} using {video_path}")
+
+def validate_training_data(data_dir):
+    required_files = ["transforms.json"]
+    for file in required_files:
+        if not os.path.exists(os.path.join(data_dir, file)):
+            raise FileNotFoundError(f"Missing required file: {file} in {data_dir}")
+    images = [f for f in os.listdir(data_dir) if f.endswith(".jpg")]
+    if not images:
+        raise FileNotFoundError(f"No images found in {data_dir}")
 
 def run_train_nerf(product_id):
-    data_dir = f"/app/synthetic_image_generation/data/{product_id}"
+    data_dir = f"/app/data/{product_id}"
+    validate_training_data(data_dir)
     snapshot_path = f"{data_dir}/{product_id}.ingp"
     command = [
         "python", "/app/synthetic_image_generation/instant-ngp/scripts/run.py",
-        data_dir, "--save_snapshot", snapshot_path, "--n_steps", "15000"
+        data_dir, "--save_snapshot", snapshot_path, "--n_steps", "15000" 
     ]
     subprocess.run(command, check=True)
 
 def run_generate_synthetic_transforms(product_id):
     """Call the external generate_transforms.py script to create synthetic transforms."""
-    data_dir = f"/app/synthetic_image_generation/data/{product_id}"
+    data_dir = f"/app/data/{product_id}"
     input_path = f"{data_dir}/transforms.json"
     output_path = f"{data_dir}/synthetic_transforms.json"
     command = [
@@ -41,7 +54,7 @@ def run_generate_synthetic_transforms(product_id):
     subprocess.run(command, check=True)
 
 def run_render_synthetic_images(product_id):
-    data_dir = f"/app/synthetic_image_generation/data/{product_id}"
+    data_dir = f"/app/data/{product_id}"
     snapshot_path = f"{data_dir}/{product_id}.ingp"
     transforms_path = f"{data_dir}/synthetic_transforms.json"
     output_dir = f"{data_dir}/synthetic_images"

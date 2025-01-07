@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List
 from contextlib import asynccontextmanager
 from db import initialize_db, add_product, get_products, get_product_by_id, update_product, delete_product, initialize_connection_pool
 from services import run_nerf_pipeline, get_synthetic_images
@@ -14,11 +15,12 @@ class ProductInput(BaseModel):
 class PipelineInput(BaseModel):
     """Input model for triggering the pipeline."""
     video_path: str
+
 class ProductUpdateInput(BaseModel):
     """Input model for updating a product."""
-    name: Optional[str] = Field(None, description="New name for the product")
-    description: Optional[str] = Field(None, description="New description for the product")
-    videos: Optional[List[str]] = Field(None, description="List of updated video paths")
+    name: str = Field(None, description="New name for the product")
+    description: str = Field(None, description="New description for the product")
+    videos: List[str] = Field(None, description="List of updated video paths")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,6 +32,14 @@ async def lifespan(app: FastAPI):
     print("Shutting down...")
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,  
+    allow_methods=["*"],  
+    allow_headers=["*"],  
+)
 
 @app.post("/products")
 def create_product(product: ProductInput):
